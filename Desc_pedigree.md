@@ -1,0 +1,4 @@
+## 3. Number of Pregnancies
+
+The number of pregnancies (gravidity) is an important factor when examining the risk of developing diabetes, particularly gestational diabetes mellitus (GDM), which can have significant implications for both the mother and child. Women who have had GDM in a previous pregnancy are at a higher risk of developing it in subsequent pregnancies. Additionally, those who develop GDM are at an **increased risk of developing type 2 diabetes** later in life, and this risk persists even after the pregnancy ends. **The likelihood of GDM increases with the number of pregnancies**, especially for women who have other risk factors, such as obesity, advanced maternal age, or a family history of diabetes.
+ 

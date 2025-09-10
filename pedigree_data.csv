@@ -1,0 +1,8 @@
+"","BMI_Category","Outcome_Category","Average","Combined"
+"1","Normal Weight","Diabetic",0.37,"Normal Weight Diabetic"
+"2","Normal Weight","Non-Diabetic",0.41,"Normal Weight Non-Diabetic"
+"3","Obese","Diabetic",0.56,"Obese Diabetic"
+"4","Obese","Non-Diabetic",0.44,"Obese Non-Diabetic"
+"5","OverWeight","Diabetic",0.51,"OverWeight Diabetic"
+"6","OverWeight","Non-Diabetic",0.43,"OverWeight Non-Diabetic"
+"7","Underweight","Non-Diabetic",0.41,"Underweight Non-Diabetic"
