@@ -1,0 +1,463 @@
+---
+title: "Does Obesity Always Lead to Diabetes?"
+author: "Kelompok 2"
+date: "2024-05-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+#install.packages("reshape2")
+#install.packages("shiny")
+#install.packages("plotrix")
+#install.packages("webshot")
+#webshot::install_phantomjs()
+```
+
+# Add Library
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(plotly)
+library(shiny)
+library(reshape2)
+library(plotrix)
+library(webshot)
+```
+
+# Import Dataset
+
+```{r}
+dat <- read.csv("diabetes.csv", header = TRUE)
+dat
+str(dat)
+
+#dataTest <- read.csv("CO2_KiloTon.csv", header = TRUE)
+#dataTest
+```
+
+# Clean Dataset
+
+```{r}
+colSums(is.na(dat))
+```
+
+# Copy of Dataset
+
+```{r}
+cleaned_dat <- dat
+#cleaned_dat$Outcome <- as.factor(cleaned_dat$Outcome)
+cleaned_dat
+```
+
+```{r}
+data_bloodPressure <- dat %>%
+  filter(BloodPressure != 0)
+
+data_insulin <- dat %>%
+  filter(Insulin != 0)
+
+data_BMI <- dat %>%
+  filter(BMI != 0)
+
+data_skinThickness <- dat %>%
+  filter(SkinThickness != 0)
+
+data_glucose <- dat %>%
+  filter(Glucose != 0)
+```
+
+
+```{r}
+cleaned_dat <- dat %>%
+  mutate(
+    BloodPressure = ifelse(BloodPressure == 0, median(data_bloodPressure$BloodPressure, na.rm = TRUE), BloodPressure),
+    Insulin = ifelse(Insulin == 0, median(data_insulin$Insulin, na.rm = TRUE), Insulin),
+    BMI = ifelse(BMI == 0, median(data_BMI$BMI, na.rm = TRUE), BMI),
+    SkinThickness = ifelse(SkinThickness == 0, median(data_skinThickness$SkinThickness, na.rm = TRUE), SkinThickness),
+    Glucose = ifelse(Glucose == 0, median(data_glucose$Glucose, na.rm = TRUE), Glucose),
+  )
+```
+
+
+# Summary & table
+
+```{r}
+summary(cleaned_dat$Age)
+summary(cleaned_dat$BMI)
+summary(cleaned_dat$DiabetesPedigreeFunction)
+summary(cleaned_dat$Insulin)
+summary(cleaned_dat$Glucose)
+summary(cleaned_dat$Rasio_Insulin_Glucose)
+
+table(cleaned_dat$Age_Category)
+table(cleaned_dat$BMI_Category)
+table(cleaned_dat$Pregnancies_Category)
+```
+
+# New Attributes
+
+```{r}
+cleaned_dat <- cleaned_dat %>%
+  mutate(
+    Age_Category = case_when(
+      Age > 0 & Age <= 19 ~ "< 19",
+      Age > 19 & Age <= 35 ~ "20 - 35",
+      Age > 35 & Age <= 50 ~ "36 - 50",
+      Age > 50 & Age <= 65 ~ "51 - 65",
+      Age > 65 ~ "> 65"
+    ),
+    BMI_Category = case_when(
+      BMI < 18.5 ~ "Underweight",
+      BMI >= 18.5 & BMI < 24.9 ~ "Normal Weight",
+      BMI >= 24.9 & BMI < 29.9 ~ "OverWeight",
+      BMI >= 29.9 ~ "Obese"
+    ),
+    Outcome_Category = case_when(
+      Outcome == 1 ~ "Diabetic",
+      Outcome == 0 ~ "Non-Diabetic"
+    )
+  )
+cleaned_dat
+colSums(is.na(cleaned_dat))
+```
+# 1. Bar Chart : Worldwide Death Cause
+```{r}
+# Create the data frame
+DeathRate_Causes <- data.frame(
+  Causes = c("Cardiovascular diseases", "Cancer", "Hypertension", "Air pollution", "Chronic obstructive respiratory diseases", "Alcohol", "Pneumonia", "Diabetes", "Tuberculosis", "Road traffic accidents"),
+  Deaths = c(17900000, 9600000, 7500000, 7000000, 3170000, 3000000, 2560000, 1600000, 1500000, 1350000)
+)
+
+# Sort the data frame by Deaths in descending order
+DeathRate_Causes_Sort <- DeathRate_Causes[order(DeathRate_Causes$Deaths, decreasing = TRUE),]
+
+DeathRate_Causes_Sort
+
+unique_causes <- unique(DeathRate_Causes_Sort$Causes)
+
+ggplot(DeathRate_Causes_Sort, aes(y = reorder(Causes, Deaths), x = Deaths, fill = as.factor(Causes))) +
+  geom_col(position = "dodge", color = "black", width = 0.7) +
+  labs(title = "Death Rates by Causes",
+       x = "Number of Deaths",
+       y = "Causes") +
+  scale_fill_manual(
+    values = c(
+      "Cardiovascular diseases" = "#C4C4C3",
+      "Cancer" = "#C4C4C3",
+      "Hypertension" = "#C4C4C3",
+      "Air pollution" = "#C4C4C3",
+      "Chronic obstructive respiratory diseases" = "#C4C4C3",
+      "Alcohol" = "#C4C4C3",
+      "Pneumonia" = "#C4C4C3",
+      "Diabetes" = "#E16463",
+      "Tuberculosis" = "#C4C4C3",
+      "Road traffic accidents" = "#C4C4C3"
+    )
+  ) +
+  theme(
+    panel.background = element_rect(fill = "white"),
+    legend.position = "none"
+  )
+```
+
+# 2. Heatmap : Correlation between all variables
+
+```{r}
+# Menghitung matriks korelasi
+cleaned_dat2 <- cleaned_dat %>% filter(BMI_Category == "Obese")
+correlation_matrix2 <- cor(cleaned_dat2[, c("SkinThickness", "BloodPressure", "Insulin", "BMI", "Pregnancies", "DiabetesPedigreeFunction", "Age", "Outcome")])
+
+
+# Menghitung korelasi dengan variabel "Outcome"
+outcome_correlations <- correlation_matrix2["Outcome",]
+
+# Urutkan nama variabel berdasarkan korelasi dengan "Outcome"
+ordered_vars <- names(sort(outcome_correlations, decreasing = TRUE))
+
+# Urutkan matriks korelasi berdasarkan urutan variabel
+ordered_correlation_matrix2 <- correlation_matrix2[ordered_vars, ordered_vars]
+
+
+# Membuat heatmap korelasi dengan urutan yang sudah diatur
+ggplot(data = melt(ordered_correlation_matrix2), aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  labs(fill = "Korelasi") +
+  scale_fill_gradient(low = "#FFF3DD", high = "#F0A829") +
+   theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.background = element_rect(fill = "white")
+  )
+```
+
+# 3. Bar chart : glucose levels based on outcome category
+```{r}
+summary_glucose_outcome <- cleaned_dat %>% 
+  group_by(Outcome_Category) %>% 
+  summarise(
+    glucose_average = round(mean(Glucose), 0)
+  )
+#write.csv(summary_glucose_outcome, "glucose_factors.csv")
+ggplot(summary_glucose_outcome, aes(x = Outcome_Category,
+                                y = glucose_average,
+                                fill = Outcome_Category))+
+  geom_col()+
+  labs(title = "Average Glucose Levels for Each Diabetes Outcome Category",
+       x = "Diabetes Outcome",
+       y = "Glucose Levels")+
+  scale_fill_manual(values = c("Diabetic" = "#F0A829",
+                               "Non-Diabetic" = "#F8DFB2"),
+                    name = "Diabetes Outcome Category")+
+  theme(
+    panel.background = element_rect(fill = "white")
+  )
+
+
+
+```
+
+# 4. Stacked Bar Chart : Diabetic and Non-Diabteic Percentage bases on the Age Category
+
+```{r}
+# Define the custom order
+customOrder = c("> 19", "20 - 35", "36 - 50", "51 - 65", "> 65")
+
+# Process the data
+summary_age_category <- cleaned_dat %>%
+  filter(BMI_Category == "Obese") %>%
+  mutate(Broader_Age_Category = substr(Age_Category, 1, 1)) %>%
+  group_by(Broader_Age_Category) %>%
+  mutate(Broader_Total = n()) %>%
+  group_by(Age_Category, Outcome, Broader_Age_Category, Broader_Total) %>%
+  summarise(Total = n(), .groups = 'drop') %>%
+  mutate(
+    Percentage = round(Total / Broader_Total * 100, 2),
+    Age_Category = factor(Age_Category, levels = customOrder),
+    Outcome = factor(Outcome, levels = c(1, 0), labels = c("Diabetic","Non-Diabetic")),
+    Combined = interaction(Age_Category, Outcome, sep = " ")
+  ) %>%
+  select(-Broader_Age_Category)
+
+# Check the processed data
+print(summary_age_category)
+#write.csv(summary_age_category, "age_data.csv")
+
+# Plot the data
+ggplot(summary_age_category, aes(x = Age_Category, y = Percentage, fill = Combined)) +
+  geom_col() +
+  labs(
+    x = "Age Categories",
+    y = "Percentage"
+  ) +
+  scale_fill_manual(values = c(
+    "20 - 35 Diabetic" = "#C4C4C3", "20 - 35 Non-Diabetic" = "#F4F3F3",
+    "36 - 50 Diabetic" = "#C4C4C3", "36 - 50 Non-Diabetic" = "#F4F3F3",
+    "51 - 65 Diabetic" = "#F0A829", "51 - 65 Non-Diabetic" = "#F8DFB2",
+    "> 65 Diabetic" = "#F0A829", "> 65 Non-Diabetic" = "#F8DFB2"
+  )) +
+  guides(fill = FALSE) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(color = "black"),
+    legend.background = element_rect(fill = "white"),
+    legend.key = element_rect(fill = "white")
+  )
+
+```
+
+# 4. Grouped Bar Chart Persentase Diabetes dan Tidak Diabetes Berdasarkan Kategori BMI
+
+```{r}
+summary_bmi_category <- cleaned_dat %>%
+  group_by(BMI_Category, Outcome_Category) %>%
+  summarise(
+    Glukosa = round(mean(Glucose),2),
+    Total = n(),
+    Percentage = round(Total / 768 * 100,2),
+    .groups = 'drop'
+  )
+summary_bmi_category
+#write.csv(summary_bmi_category, "bmi_dist.csv")
+
+ggplot(summary_bmi_category, aes(x = BMI_Category, y = Percentage, fill = as.factor(Outcome_Category))) +
+  geom_col() +
+  labs(title = "Persentase Diabetes dan Tidak Diabetes Berdasarkan Kategori BMI", x = "Kategori BMI", y = "Persentase", fill = "Status Diabetes") +
+  scale_fill_manual(values = c("Diabetic" = "#F0A829", "Non-Diabetic" =  "#F8DFB2"))
+```
+
+# 5. Pie chart : Percentage of Diabetic and Non Diabetic
+
+```{r}
+count_obese0 <- sum(cleaned_dat$BMI_Category == "Obese" & cleaned_dat$Outcome == 0)
+count_obese0
+count_total_obese <- sum(cleaned_dat$BMI_Category == "Obese")
+count_total_obese
+count_obese1 <- sum(cleaned_dat$BMI_Category == "Obese" & cleaned_dat$Outcome == 1)
+count_obese1
+
+tbl_obese <- data.frame(
+  Outcome = c("Non-Diabetes", "Diabetes"),
+  Count = c(count_obese0, count_obese1)
+  )
+tbl_obese
+
+tbl_obese$Percentage <- (tbl_obese$Count / count_total_obese) * 100
+print(tbl_obese)
+
+plot_ly(data = tbl_obese, 
+        type = 'pie', 
+        values = ~Percentage, 
+        labels = ~Outcome, 
+        textinfo = 'label+percent', 
+        hole = 0.4) %>%
+  layout(title = "3D Pie Chart of Obesity Outcomes")
+
+
+colors <- c("#75B1E8","#E16463")
+
+#png("pieObese.png")
+pieObese <- pie3D(
+  tbl_obese$Percentage, 
+  col = colors,
+  labels = tbl_obese$Outcome,
+  explode = 0.3,
+  theta = 0.8
+)
+dev.off()
+
+
+```
+
+
+# 6. Grouped bar chart : Percentage of Diabetic and Non diabetic based on BMI Category and Genetic Function Index
+
+```{r}
+# Summarize the data
+summary_ped_BMI <- cleaned_dat %>%
+  group_by(BMI_Category, Outcome_Category) %>%
+  summarise(
+    Average = round(mean(DiabetesPedigreeFunction), 2),
+    .groups = 'drop'
+  )
+
+# Create a new variable for combined BMI_Category and Outcome
+summary_ped_BMI$Combined <- interaction(summary_ped_BMI$BMI_Category, summary_ped_BMI$Outcome_Category, sep = " ")
+
+summary_ped_BMI
+#write.csv(summary_ped_BMI, "pedigree_data.csv")
+
+# Plot the data with customized colors
+graf <- ggplot(summary_ped_BMI, aes(x = BMI_Category, y = Average, fill = Combined)) +
+  geom_col(position = "dodge", width = 0.7) +
+  geom_text(aes(label = round(Average, 2)),  # Adding text on top of the bars
+            position = position_dodge(width = 0.7), 
+            vjust = -0.5) +
+  labs(
+    title = "Diabetic Percentage based on BMI Category and Genetic Factor Index", 
+    x = "BMI Category", 
+    y = "Average Genectic Factor Index", 
+    fill = "Diabetes Status"
+  ) +
+  scale_fill_manual(
+    values = c(
+      "Obese Diabetic" = "#F0A829", "Obese Non-Diabetic" = "#F8DFB2",
+      "OverWeight Diabetic" = "#C4C4C3", "OverWeight Non-Diabetic" = "#F4F3F3",
+      "Normal Weight Diabetic" = "#C4C4C3", "Normal Weight Non-Diabetic" = "#F4F3F3",
+      "Underweight Diabetic" = "#C4C4C3", "Underweight Non-Diabetic" = "#F4F3F3"
+    )
+  ) +
+  theme(
+    panel.background = element_rect(fill = "white")
+  )
+
+graf
+
+#ggsave("diabetes_berdasarkan_kategori_BMI.png", graf)
+```
+
+
+#7.  bmi distribution
+```{r}
+bmi_dist <- cleaned_dat %>% 
+  group_by(BMI_Category) %>% 
+  summarise(
+    Count = n()
+  )
+
+total = nrow(cleaned_dat)
+
+bmi_dist <- bmi_dist %>% 
+  mutate(
+    Percentage = round(Count / total * 100, 2)
+  )
+#write.csv(bmi_dist, "bmi_data.csv")
+
+ggplot(bmi_dist, aes(x = BMI_Category, y = Percentage, fill = BMI_Category))+
+  geom_col()+
+  labs(title = "BMI Distribution for Pima Indian  Women",
+       x = "BMI Category",
+       y = "Percentage")+
+  theme_minimal()+
+  scale_fill_manual(
+    values = c(
+      "Obese" = "#F0A829",
+      "Normal Weight" =  "#F8DFB2",
+      "OverWeight" =  "#F8DFB2",
+      "UnderWeight" =  "#F8DFB2"
+    )
+  )
+```
+
+#8.  donut chart for diabetic n non diabetic in obese population
+```{r}
+total <- nrow(filter(cleaned_dat, BMI_Category == "Obese"))
+obesepop<-cleaned_dat %>% 
+  filter(BMI_Category == "Obese") %>% 
+  group_by(Outcome_Category) %>% 
+  summarise(
+    count = n(),
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    percent = round(count / total * 100, 2)
+  )
+#write.csv(obesepop, "bmicat_data.csv")
+
+plot_ly(data = obesepop, 
+        type = 'pie', 
+        values = ~percent, 
+        labels = ~Outcome_Category, 
+        textinfo = 'label+percent', 
+        hole = 0.4) %>%
+  layout(title = "Pie Chart of Obesity Diabetic Status")
+```
+
+
+
+#9. pregnancies number for each diabetic category
+```{r}
+preg <- cleaned_dat %>% 
+  filter(BMI_Category == "Obese") %>% 
+  group_by(Outcome_Category) %>% 
+  summarise(
+    aver = round(mean(Pregnancies, na.rm = TRUE),0)
+  )
+
+#write.csv(preg, "preg_data.csv")
+ggplot(preg, aes(x = Outcome_Category, y =aver, fill = Outcome_Category))+
+  geom_col()+
+  labs( y = "Average Pregnancies Count")+
+  scale_fill_manual(values = c("Diabetic" = "#F0A829",
+                               "Non-Diabetic" = "#F8DFB2"))+
+  theme(
+        panel.background = element_rect(fill = "white")
+  )
+
+
+```
+
